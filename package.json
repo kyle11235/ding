@@ -1,0 +1,22 @@
+{
+  "name": "auth",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+    "build": "zip -r build/h5.zip node_modules routes service *.js *.sh public"
+  },
+  "dependencies": {
+    "async-request": "^1.2.0",
+    "bluebird": "^3.4.6",
+    "body-parser": "^1.17.1",
+    "cheerio": "^1.0.0-rc.3",
+    "crypto": "^1.0.1",
+    "express": "^4.14.0",
+    "fs": "0.0.1-security",
+    "moment": "^2.16.0",
+    "morgan": "^1.9.0",
+    "request": "^2.88.0",
+    "urlencode": "^1.1.0"
+  }
+}

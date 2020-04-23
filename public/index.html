@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,user-scalable=no" />
+
+  <!-- import CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui@2.12.0/lib/theme-chalk/index.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- login form -->
+    <div v-if="!hasLogin" style="margin-top:100px;padding:20px;">
+      <el-form ref="user" :model="user" label-width="80px">
+          
+        <el-form-item label="用户名">
+          <el-input v-model="user.name" @keyup.enter.native="fnLogin"></el-input>
+        </el-form-item>
+
+        <el-form-item label="密码">
+          <el-input v-model="user.password" :type="'password'" :show-password="true" @keyup.enter.native="fnLogin"></el-input>
+        </el-form-item>
+        
+        <el-form-item>
+          <el-button type="primary" @click="fnLogin">登录</el-button>
+          <el-button type="primary" @click="fnLoginDing">丁丁登录</el-button>
+        </el-form-item>
+
+      </el-form>    
+    </div>
+
+    
+    <div v-if="hasLogin" style="margin-top:50px;padding:20px;">
+      
+      <!-- user info -->
+      <el-row type="flex" justify="space-between" align="middle" class="">
+        
+        <el-col :span="12">
+          <div class="" style="font-size:30px;">
+            Hi {{user.name}}</span>
+          </div>
+        </el-col>
+
+        <el-col :span="6">
+          <div class="">
+            <el-button  @click="fnLogout">退出登录</el-button>
+          </div>
+        </el-col>
+      </el-row>
+
+      <!-- device -->
+      <div style="margin-top: 20px;">
+        <el-form ref="device" :model="device" label-width="80px">
+          
+          <el-form-item label="设备ID">
+            <el-input v-model="device.id" placeholder="请输入设备ID" @keyup.enter.native="fnGetDevice"></el-input>
+          </el-form-item>
+  
+          <el-form-item label="设备名称">
+            {{device.name}}
+          </el-form-item>
+
+          <el-form-item label="备注">
+            <el-input v-model="device.remark"></el-input>
+          </el-form-item>
+          
+          <el-form-item>
+            <el-button type="primary" @click="fnGetDevice">查询</el-button>
+            <el-button type="primary" @click="fnUpdate">更新</el-button>
+          </el-form-item>
+  
+        </el-form> 
+
+      </div>
+
+    </div>
+
+    <!-- ding userinfo -->
+    <div style="text-align: center;">
+      <div>
+          当前丁丁用户信息
+      </div>
+      <div style="font-size: 12px; word-wrap:break-word;">
+        {{userinfostring}}
+      </div>
+    </div>
+    
+  </div>
+</body>
+
+  <!-- import Vue before Element -->
+  <script src="https://unpkg.com/vue/dist/vue.js"></script>
+  <!-- import JavaScript -->
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <script src="./jquery.js"></script>
+  <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/2.10.3/dingtalk.open.js"></script>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data: function() {
+        return { 
+          user: {
+            name: '',
+            password: ''
+          },
+          hasLogin: false,
+          device: {
+            id: undefined
+          },
+          code: undefined,
+          userinfo: {},
+          userinfostring: '无数据'
+        }
+      },
+      created() {
+        let that = this
+
+        // login status
+        if(localStorage.user){
+          console.log('created, user=', localStorage.user)
+          
+          this.user = JSON.parse(localStorage.user)
+          if(this.user.name && this.user.password){
+            this.hasLogin = true
+          }
+        }
+
+        // get device
+        this.device.id = this.getParam('id')
+        console.log('created, device id=', this.device.id)
+
+        if (this.hasLogin && this.device.id) {
+          this.fnGetDevice()
+        } 
+
+        // dingding
+        this.code = this.getParam('code')
+        console.log('created, code=', this.code)
+
+        // 1. https://open-dev.dingtalk.com/#/index -> corpId
+        // 2. requestAuthCode -> code
+        // 3. https://ding-doc.dingtalk.com/doc#/serverapi2/eev437 -> appKey和appSecret
+        // 4. 获取access_token
+        // 5. 获取用户userid
+        // 6. 获取用户详情 (需要申请开通权限，立即开通完毕)
+
+        if(that.code){
+          // 扫码登录第三方跳转回来
+          that.mode = 'scan'
+          that.fnGetDingUser()
+        } else {
+          // 丁丁内免登录
+          that.mode = 'miandeng'
+          dd.ready(function() {
+            dd.runtime.permission.requestAuthCode({
+                corpId: "dingcd7c42c73aba1eefacaaa37764f94726", 
+                onSuccess: function(result) {
+                  that.code = result.code
+                  console.log('requestAuthCode code=' + that.code)
+                  that.fnGetDingUser()
+                },
+                onFail : function(err) {}
+          
+            });
+          });
+        }
+        
+
+        dd.error(function(error){
+        /**
+        {
+           errorMessage:"错误信息",// errorMessage 信息会展示出钉钉服务端生成签名使用的参数，请和您生成签名的参数作对比，找出错误的参数
+           errorCode: "错误码"
+        }
+        **/
+          alert('dd error: ' + JSON.stringify(error));
+        });
+
+
+      },
+      methods: {
+        getParam: function(name) {
+          var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)")
+          var r = window.location.search.substr(1).match(reg)
+          if (r != null){
+            return decodeURI(r[2])
+          }
+          return null;
+        },
+        fnLogin: function() {
+          let that = this
+          console.log('fnLogin, user=', this.user)
+
+          if(!this.user || !this.user.name || !this.user.password){
+            this.$message.error('请输入用户名和密码')
+            return
+          }
+
+          $.ajax({
+              type: "GET",
+              url: 'http://' + window.location.host + '/api/login?name=' + that.user.name + '&password=' + that.user.password,
+              data: JSON.stringify({}),
+              contentType: "application/json",
+              dataType:'json',
+              success: function (res) {
+                  console.log('res=', res)
+                  if(res.status == 'success'){
+
+                    localStorage.user = JSON.stringify(that.user)
+                    that.hasLogin = true
+                    
+                    that.fnGetDevice()
+                  }
+              },
+              error: function(error){
+                console.log('error=', error)
+                if(error.status == 401){
+                  that.$message.error('用户名或密码错误')
+                } else {
+                  that.$message.error(error.statusText)
+                }
+              }
+          });
+
+        },
+        fnLoginDing: function() {
+          let that = this
+          console.log('fnLoginDing, user=', this.user)
+
+          window.location.href = 'https://oapi.dingtalk.com/connect/qrconnect?appid=dingoaejgbf59tssokju1x&response_type=code&scope=snsapi_login&state=STATE&redirect_uri=http://132.145.88.122:3000/static'
+
+        },
+        fnLogout: function() {
+          console.log('fnLogout')
+          localStorage.removeItem('user')
+          this.hasLogin = false
+        },
+        fnGetDingUser: function(){
+          let that = this
+          $.ajax({
+              type: "GET",
+              url: 'http://' + window.location.host + '/api/userinfo?code=' + that.code + '&mode=' + that.mode,
+              data: JSON.stringify({}),
+              contentType: "application/json",
+              dataType:'json',
+              success: function (res) {
+                  console.log('res=', res)
+                  if(res.status == 'success'){
+                    that.userinfo = res.data
+                    that.userinfostring = JSON.stringify(res.data)
+                  } else {
+                    that.$message.error(res.message)
+                  }
+              },
+              error: function(error){
+                console.log('error=', error)
+                that.$message.error(error.statusText)
+              }
+          });
+        },
+        fnGetDevice: function(){
+          let that = this
+          if(!that.device.id){
+            that.$message.error('请输入设备ID')
+            return
+          }
+          $.ajax({
+              type: "GET",
+              url: 'http://' + window.location.host + '/api/device?name=' + that.user.name + '&password=' + that.user.password + '&id=' + that.device.id,
+              data: JSON.stringify({}),
+              contentType: "application/json",
+              dataType:'json',
+              success: function (res) {
+                  console.log('res=', res)
+                  if(res.status == 'success'){
+                    that.device = res.data
+                  } else {
+                    that.$message.error(res.message)
+                  }
+              },
+              error: function(error){
+                if(error.status == 401){
+                  that.$message.error('用户名或密码错误')
+                } else {
+                  that.$message.error(error.statusText)
+                }
+              }
+          });
+        },
+        fnUpdate: function(){
+          let that = this
+          that.$message.success('尚未实现此功能')
+        }
+      }
+    })
+  </script>
+</html>
